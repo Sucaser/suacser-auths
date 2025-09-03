@@ -95,6 +95,9 @@
         const messageDiv = document.getElementById('message');
         const passwordForm = document.getElementById('password-form');
         
+        // Store the verified email for password reset
+        let verifiedEmail = null;
+        
         if (mode === 'verifyEmail' && actionCode) {
             // Verify the email
             firebase.auth().applyActionCode(actionCode)
@@ -113,8 +116,9 @@
             // Handle password reset - show form
             firebase.auth().verifyPasswordResetCode(actionCode)
                 .then((email) => {
+                    verifiedEmail = email;
                     messageDiv.innerHTML = `<h2>Reset Password for:</h2><p>${email}</p>`;
-                    messageDiv.className = 'loading';
+                    messageDiv.className = '';
                     passwordForm.style.display = 'block';
                 })
                 .catch((error) => {
@@ -126,7 +130,8 @@
         } else if (mode === 'recoverEmail' && actionCode) {
             // Handle email recovery
             firebase.auth().checkActionCode(actionCode)
-                .then(() => {
+                .then((info) => {
+                    // Restore the original email
                     firebase.auth().applyActionCode(actionCode);
                     messageDiv.className = 'success';
                     messageDiv.innerHTML = 
@@ -136,6 +141,7 @@
                     messageDiv.className = 'error';
                     messageDiv.innerHTML = 
                         '<h2>❌ Recovery Failed</h2><p>This recovery link may have expired or already been used.</p>';
+                    console.error('Email recovery error:', error);
                 });
         } else {
             messageDiv.className = 'error';
@@ -158,6 +164,7 @@
                 return;
             }
             
+            // Use the actionCode from URL parameters
             firebase.auth().confirmPasswordReset(actionCode, newPassword)
                 .then(() => {
                     messageDiv.className = 'success';
