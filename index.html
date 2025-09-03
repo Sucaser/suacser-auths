@@ -56,6 +56,12 @@
         #password-form {
             display: none;
         }
+        .password-error {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -65,8 +71,10 @@
         <!-- Password Reset Form -->
         <div id="password-form" class="form-container">
             <h2>Reset Your Password</h2>
+            <div id="reset-email"></div>
             <input type="password" id="newPassword" placeholder="Enter new password" minlength="6">
             <input type="password" id="confirmPassword" placeholder="Confirm new password" minlength="6">
+            <div id="password-error" class="password-error">Passwords do not match</div>
             <br>
             <button onclick="resetPassword()">Reset Password</button>
             <button class="cancel-btn" onclick="cancelReset()">Cancel</button>
@@ -94,9 +102,12 @@
         
         const messageDiv = document.getElementById('message');
         const passwordForm = document.getElementById('password-form');
+        const resetEmailDiv = document.getElementById('reset-email');
+        const passwordErrorDiv = document.getElementById('password-error');
         
-        // Store the verified email for password reset
-        let verifiedEmail = null;
+        // Store the action code globally for use in resetPassword function
+        let resetActionCode = actionCode;
+        let userEmail = '';
         
         if (mode === 'verifyEmail' && actionCode) {
             // Verify the email
@@ -116,9 +127,9 @@
             // Handle password reset - show form
             firebase.auth().verifyPasswordResetCode(actionCode)
                 .then((email) => {
-                    verifiedEmail = email;
-                    messageDiv.innerHTML = `<h2>Reset Password for:</h2><p>${email}</p>`;
-                    messageDiv.className = '';
+                    userEmail = email;
+                    messageDiv.style.display = 'none';
+                    resetEmailDiv.innerHTML = `<p>Reset password for: <strong>${email}</strong></p>`;
                     passwordForm.style.display = 'block';
                 })
                 .catch((error) => {
@@ -132,7 +143,9 @@
             firebase.auth().checkActionCode(actionCode)
                 .then((info) => {
                     // Restore the original email
-                    firebase.auth().applyActionCode(actionCode);
+                    return firebase.auth().applyActionCode(actionCode);
+                })
+                .then(() => {
                     messageDiv.className = 'success';
                     messageDiv.innerHTML = 
                         '<h2>✅ Email Recovered!</h2><p>Your email has been successfully recovered.</p>';
@@ -160,19 +173,22 @@
             }
             
             if (newPassword !== confirmPassword) {
-                alert('Passwords do not match');
+                passwordErrorDiv.style.display = 'block';
                 return;
+            } else {
+                passwordErrorDiv.style.display = 'none';
             }
             
-            // Use the actionCode from URL parameters
-            firebase.auth().confirmPasswordReset(actionCode, newPassword)
+            firebase.auth().confirmPasswordReset(resetActionCode, newPassword)
                 .then(() => {
+                    messageDiv.style.display = 'block';
                     messageDiv.className = 'success';
                     messageDiv.innerHTML = 
                         '<h2>✅ Password Reset Successfully!</h2><p>Your password has been updated. You can now close this window and sign in with your new password.</p>';
                     passwordForm.style.display = 'none';
                 })
                 .catch((error) => {
+                    messageDiv.style.display = 'block';
                     messageDiv.className = 'error';
                     messageDiv.innerHTML = 
                         '<h2>❌ Password Reset Failed</h2><p>There was an error resetting your password. Please try requesting a new reset link.</p>';
@@ -182,11 +198,24 @@
         
         // Cancel password reset
         function cancelReset() {
+            messageDiv.style.display = 'block';
             messageDiv.className = 'error';
             messageDiv.innerHTML = 
                 '<h2>Password Reset Cancelled</h2><p>You can close this window or request a new password reset if needed.</p>';
             passwordForm.style.display = 'none';
         }
+
+        // Add real-time password matching validation
+        document.getElementById('confirmPassword').addEventListener('input', function() {
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = this.value;
+            
+            if (confirmPassword && newPassword !== confirmPassword) {
+                passwordErrorDiv.style.display = 'block';
+            } else {
+                passwordErrorDiv.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
