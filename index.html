@@ -22,11 +22,55 @@
         .success { color: #4CAF50; }
         .error { color: #f44336; }
         .loading { color: #2196F3; }
+        .form-container {
+            margin-top: 20px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .cancel-btn {
+            background-color: #f44336;
+        }
+        .cancel-btn:hover {
+            background-color: #da190b;
+        }
+        #password-form {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="message" class="loading">Processing your request...</div>
+        
+        <!-- Password Reset Form -->
+        <div id="password-form" class="form-container">
+            <h2>Reset Your Password</h2>
+            <input type="password" id="newPassword" placeholder="Enter new password" minlength="6">
+            <input type="password" id="confirmPassword" placeholder="Confirm new password" minlength="6">
+            <br>
+            <button onclick="resetPassword()">Reset Password</button>
+            <button class="cancel-btn" onclick="cancelReset()">Cancel</button>
+        </div>
     </div>
     
     <script>
@@ -49,6 +93,7 @@
         const continueUrl = urlParams.get('continueUrl');
         
         const messageDiv = document.getElementById('message');
+        const passwordForm = document.getElementById('password-form');
         
         if (mode === 'verifyEmail' && actionCode) {
             // Verify the email
@@ -65,8 +110,19 @@
                     console.error('Verification error:', error);
                 });
         } else if (mode === 'resetPassword' && actionCode) {
-            // Handle password reset - redirect to your app
-            window.location.href = `https://yourapp.com/reset-password?oobCode=${actionCode}`;
+            // Handle password reset - show form
+            firebase.auth().verifyPasswordResetCode(actionCode)
+                .then((email) => {
+                    messageDiv.innerHTML = `<h2>Reset Password for:</h2><p>${email}</p>`;
+                    messageDiv.className = 'loading';
+                    passwordForm.style.display = 'block';
+                })
+                .catch((error) => {
+                    messageDiv.className = 'error';
+                    messageDiv.innerHTML = 
+                        '<h2>❌ Reset Failed</h2><p>This password reset link may have expired or already been used. Please request a new password reset email.</p>';
+                    console.error('Password reset error:', error);
+                });
         } else if (mode === 'recoverEmail' && actionCode) {
             // Handle email recovery
             firebase.auth().checkActionCode(actionCode)
@@ -85,6 +141,44 @@
             messageDiv.className = 'error';
             messageDiv.innerHTML = 
                 '<h2>❌ Invalid Request</h2><p>This link appears to be invalid or corrupted.</p>';
+        }
+        
+        // Password reset function
+        function resetPassword() {
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (!newPassword || newPassword.length < 6) {
+                alert('Password must be at least 6 characters long');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+            
+            firebase.auth().confirmPasswordReset(actionCode, newPassword)
+                .then(() => {
+                    messageDiv.className = 'success';
+                    messageDiv.innerHTML = 
+                        '<h2>✅ Password Reset Successfully!</h2><p>Your password has been updated. You can now close this window and sign in with your new password.</p>';
+                    passwordForm.style.display = 'none';
+                })
+                .catch((error) => {
+                    messageDiv.className = 'error';
+                    messageDiv.innerHTML = 
+                        '<h2>❌ Password Reset Failed</h2><p>There was an error resetting your password. Please try requesting a new reset link.</p>';
+                    console.error('Password reset error:', error);
+                });
+        }
+        
+        // Cancel password reset
+        function cancelReset() {
+            messageDiv.className = 'error';
+            messageDiv.innerHTML = 
+                '<h2>Password Reset Cancelled</h2><p>You can close this window or request a new password reset if needed.</p>';
+            passwordForm.style.display = 'none';
         }
     </script>
 </body>
